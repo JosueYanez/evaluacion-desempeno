@@ -12,7 +12,10 @@ st.set_page_config(layout="wide")
 scopes = ["https://www.googleapis.com/auth/spreadsheets",
           "https://www.googleapis.com/auth/drive"]
 
-creds = Credentials.from_service_account_file("Credentials.json", scopes=scopes)
+import json
+creds_dict = json.loads(st.secrets["general"]["gcp_service_account"])
+creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+
 client = gspread.authorize(creds)
 
 # Abre el archivo y la hoja
@@ -217,3 +220,4 @@ elif modo == "RH":
 
         hoja.append_row(nueva_fila)
         st.success("✅ Evaluación guardada correctamente en Google Sheets.")
+
