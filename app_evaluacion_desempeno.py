@@ -205,19 +205,29 @@ elif modo == "RH":
     anio = st.number_input("Año", min_value=2000, max_value=hoy.year, value=hoy.year, key="anio_eval")
     comentarios = st.text_area("Comentarios", key="comentarios_eval")
 
-    # -------------------------------------------------------
-    # GUARDAR EVALUACIÓN
-    # -------------------------------------------------------
-    if st.button("Guardar Evaluación"):
-        # Crear fila con datos base + evaluación
-        nueva_fila = [
-            trab[c] for c in trabajadores.columns
-        ] + [
-            dia, mes, anio,
-            meta_real["meta1_real"], meta_real["meta2_real"], meta_real["meta3_real"], meta_real["meta4_real"],
-            resultados["resultado1"], resultados["resultado2"], resultados["resultado3"], resultados["resultado4"]
-        ] + list(calidad.values()) + [puntaje_total, comentarios]
+# -------------------------------------------------------
+# GUARDAR EVALUACIÓN
+# -------------------------------------------------------
+if st.button("Guardar Evaluación"):
+    # Crear fila con datos base + evaluación
+    nueva_fila = [
+        trab[c] for c in trabajadores.columns
+    ] + [
+        dia, mes, anio,
+        meta_real["meta1_real"], meta_real["meta2_real"], meta_real["meta3_real"], meta_real["meta4_real"],
+        resultados["resultado1"], resultados["resultado2"], resultados["resultado3"], resultados["resultado4"]
+    ] + list(calidad.values()) + [puntaje_total, comentarios]
 
-        hoja.append_row(nueva_fila)
-        st.success("✅ Evaluación guardada correctamente en Google Sheets.")
+    # 🔹 Conversión segura a tipos nativos
+    nueva_fila = [str(x) if isinstance(x, (pd.Timestamp,)) else
+                  (int(x) if isinstance(x, (int, float)) and float(x).is_integer() else
+                   float(x) if isinstance(x, (int, float)) else
+                   str(x))
+                  for x in nueva_fila]
+
+    # 🔹 Inserta la nueva fila al final
+    hoja.append_row(nueva_fila)
+    st.success("✅ Evaluación guardada correctamente en Google Sheets.")
+
+
 
