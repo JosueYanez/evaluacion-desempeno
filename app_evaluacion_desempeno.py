@@ -209,7 +209,7 @@ elif modo == "RH":
 # GUARDAR EVALUACIÓN
 # -------------------------------------------------------
 if st.button("Guardar Evaluación"):
-    # Crear fila con datos base + evaluación
+    # Crear la fila completa
     nueva_fila = [
         trab[c] for c in trabajadores.columns
     ] + [
@@ -218,14 +218,22 @@ if st.button("Guardar Evaluación"):
         resultados["resultado1"], resultados["resultado2"], resultados["resultado3"], resultados["resultado4"]
     ] + list(calidad.values()) + [puntaje_total, comentarios]
 
-    # 🔹 Conversión TOTAL a string (soluciona el JSON error)
+    # 🔹 Conversión segura a string
     nueva_fila = [str(x) for x in nueva_fila]
 
-    # 🔹 Inserta fila al final de la hoja
-    ultima_fila = len(hoja.get_all_values()) + 1
-    hoja.insert_row(nueva_fila, index=ultima_fila)
+    # 🔹 Asegurar que la longitud coincide con la hoja
+    encabezados = hoja.row_values(1)
+    num_columnas = len(encabezados)
+    if len(nueva_fila) < num_columnas:
+        nueva_fila += [""] * (num_columnas - len(nueva_fila))  # Rellenar vacíos
+    elif len(nueva_fila) > num_columnas:
+        nueva_fila = nueva_fila[:num_columnas]  # Recortar si sobra
 
+    # 🔹 Agregar fila de manera vertical
+    hoja.append_row(nueva_fila)
     st.success("✅ Evaluación guardada correctamente en Google Sheets.")
+
+
 
 
 
