@@ -218,16 +218,16 @@ if st.button("Guardar Evaluación"):
         resultados["resultado1"], resultados["resultado2"], resultados["resultado3"], resultados["resultado4"]
     ] + list(calidad.values()) + [puntaje_total, comentarios]
 
-    # 🔹 Conversión segura a tipos nativos
-    nueva_fila = [str(x) if isinstance(x, (pd.Timestamp,)) else
-                  (int(x) if isinstance(x, (int, float)) and float(x).is_integer() else
-                   float(x) if isinstance(x, (int, float)) else
-                   str(x))
-                  for x in nueva_fila]
+    # 🔹 Conversión TOTAL a string (soluciona el JSON error)
+    nueva_fila = [str(x) for x in nueva_fila]
 
-    # 🔹 Inserta la nueva fila al final
-    hoja.append_row(nueva_fila)
+    # 🔹 Inserta fila al final de la hoja
+    ultima_fila = len(hoja.get_all_values()) + 1
+    hoja.insert_row(nueva_fila, index=ultima_fila)
+
     st.success("✅ Evaluación guardada correctamente en Google Sheets.")
+
+
 
 
 
