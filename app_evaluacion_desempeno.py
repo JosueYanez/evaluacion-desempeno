@@ -27,11 +27,23 @@ SHEET_ID = "1L1hNefm59HtAnKwNci67B8nsiVdu7n63E9SZZlfoayo"
 # ===========================================================
 @st.cache_data(ttl=60)
 def cargar_datos():
-    """Carga los datos de la hoja y los mantiene en caché 60 segundos."""
+    """Carga todos los datos (incluyendo columnas vacías) de la hoja."""
     spreadsheet = client.open_by_key(SHEET_ID)
     hoja = spreadsheet.worksheet("trabajadores")
-    datos = hoja.get_all_records()
-    return pd.DataFrame(datos)
+    
+    # Obtener encabezados y todas las filas completas
+    encabezados = hoja.row_values(1)
+    filas = hoja.get_all_values()[1:]  # sin encabezado
+    
+    # Rellenar filas cortas con celdas vacías para igualar longitud
+    for fila in filas:
+        if len(fila) < len(encabezados):
+            fila += [""] * (len(encabezados) - len(fila))
+    
+    # Crear DataFrame con longitud exacta
+    df = pd.DataFrame(filas, columns=encabezados)
+    return df
+
 
 trabajadores = cargar_datos()
 
@@ -268,6 +280,7 @@ if st.button("Guardar Evaluación"):
     else:
         hoja_live.append_row(nueva_fila, value_input_option="USER_ENTERED")
         st.success(f"✅ Evaluación guardada correctamente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
+
 
 
 
