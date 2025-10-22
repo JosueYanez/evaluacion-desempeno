@@ -10,6 +10,16 @@ import json
 # CONFIGURACIÓN GENERAL
 # ===========================================================
 st.set_page_config(layout="wide", page_title="Sistema de Evaluación del Desempeño")
+# Ocultar íconos y enlaces de Streamlit/GitHub
+st.markdown("""
+    <style>
+    /* Oculta el ícono de GitHub arriba a la derecha */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    [data-testid="stToolbar"] {visibility: hidden !important;}
+    </style>
+""", unsafe_allow_html=True)
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets",
           "https://www.googleapis.com/auth/drive"]
@@ -309,6 +319,7 @@ if st.button("Guardar Evaluación"):
     # 🔹 Guardar
     hoja_live.append_row(nueva_fila, value_input_option="USER_ENTERED")
     st.success(f"✅ Evaluación guardada correctamente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
+
 
 
 
