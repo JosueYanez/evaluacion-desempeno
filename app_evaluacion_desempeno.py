@@ -256,32 +256,52 @@ elif modo == "RH":
     comentarios = st.text_area("Comentarios", key="comentarios_eval")
 
 # -------------------------------------------------------
-# GUARDAR EVALUACIÓN (CONEXIÓN DIRECTA Y ALINEADA)
+# GUARDAR EVALUACIÓN (corregido y alineado)
 # -------------------------------------------------------
 if st.button("Guardar Evaluación"):
     hoja_live = client.open_by_key(SHEET_ID).worksheet("trabajadores")
 
-    # Generar fila con todos los datos
-    nueva_fila = [trab[c] for c in trabajadores.columns] + [
+    # 🔹 Solo conservar las primeras 19 columnas fijas del trabajador
+    columnas_fijas = [
+        "Nombre(s) y Apellidos:", "C.U.R.P.", "R.F.C.", "Superior Jerárquico:", "Área de Adscripción:",
+        "Puesto que desempeña:", "Nivel:", "Fecha del Nombramiento:", "Antigüedad en el Puesto:",
+        "Antigüedad en Gobierno:", "Principal Funcion 1", "Principal Funcion 2", "Principal Funcion 3",
+        "Meta 1 descripción", "Meta 2 descripción", "Meta 3 descripción", "Meta 1 prog", "Meta 2 prog", "Meta 3 prog"
+    ]
+
+    # 🔹 Construir nueva fila exactamente en el orden de columnas de la hoja
+    nueva_fila = [
+        trab[c] for c in columnas_fijas
+    ] + [
         dia, mes, anio,
         meta_real["meta1_real"], meta_real["meta2_real"], meta_real["meta3_real"],
-        resultados["resultado1"], resultados["resultado2"], resultados["resultado3"]
-    ] + list(calidad.values()) + [puntaje_total, comentarios]
+        resultados["resultado1"], resultados["resultado2"], resultados["resultado3"],
+        calidad["CONOCIMIENTO DEL PUESTO"], calidad["CRITERIO"], calidad["CALIDAD DEL TRABAJO"],
+        calidad["TÉCNICA Y ORGANIZACIÓN DEL TRABAJO"], calidad["NECESIDAD DE SUPERVISIÓN"],
+        calidad["CAPACITACIÓN RECIBIDA"], calidad["INICIATIVA"], calidad["COLABORACIÓN Y DISCRECIÓN"],
+        calidad["RESPONSABILIDAD Y DISCIPLINA"], calidad["TRABAJO EN EQUIPO"],
+        calidad["RELACIONES INTERPERSONALES"], calidad["MEJORA CONTINUA"],
+        puntaje_total, comentarios
+    ]
 
-    # Leer encabezados de la hoja
+    # 🔹 Convertir todo a string
+    nueva_fila = [str(x) for x in nueva_fila]
+
+    # 🔹 Leer encabezados reales de la hoja
     encabezados = hoja_live.row_values(1)
     num_columnas = len(encabezados)
 
-    # Conversión segura a texto
-    nueva_fila = [str(x) for x in nueva_fila]
+    # 🔹 Alinear longitud exacta (por si falta o sobra algo)
+    if len(nueva_fila) < num_columnas:
+        nueva_fila += [""] * (num_columnas - len(nueva_fila))
+    elif len(nueva_fila) > num_columnas:
+        nueva_fila = nueva_fila[:num_columnas]
 
-    # ✅ Verificación preventiva antes de guardar
-    if len(nueva_fila) != num_columnas:
-        st.warning(f"La fila tiene {len(nueva_fila)} columnas, pero la hoja tiene {num_columnas}. "
-                   "Revisa los encabezados en Google Sheets para asegurar que coincidan.")
-    else:
-        hoja_live.append_row(nueva_fila, value_input_option="USER_ENTERED")
-        st.success(f"✅ Evaluación guardada correctamente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
+    # 🔹 Guardar
+    hoja_live.append_row(nueva_fila, value_input_option="USER_ENTERED")
+    st.success(f"✅ Evaluación guardada correctamente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
+
+
 
 
 
