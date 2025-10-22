@@ -79,8 +79,16 @@ if modo == "Administrador":
         st.dataframe(df_filtro, use_container_width=True)
 
         # Promedio general y gráficas institucionales
-        if "Puntaje total" in df_filtro.columns and not df_filtro["Puntaje total"].isnull().all():
-            promedio_general = round(df_filtro["Puntaje total"].astype(float).mean(), 2)
+        if "Puntaje total" in df_filtro.columns:
+    # Convierte los valores a numéricos, ignorando los que no se puedan convertir
+    df_filtro["Puntaje total"] = pd.to_numeric(df_filtro["Puntaje total"], errors="coerce")
+
+    if df_filtro["Puntaje total"].notnull().any():
+        promedio_general = round(df_filtro["Puntaje total"].mean(), 2)
+        st.markdown(f"### 📈 Promedio general: **{promedio_general}/48**")
+    else:
+        st.info("No hay datos numéricos válidos en 'Puntaje total' para calcular promedio.")
+
             st.markdown(f"### 📈 Promedio general: **{promedio_general}/24**")
 
             col1, col2 = st.columns(2)
@@ -300,6 +308,7 @@ if st.button("Guardar Evaluación"):
     # 🔹 Guardar
     hoja_live.append_row(nueva_fila, value_input_option="USER_ENTERED")
     st.success(f"✅ Evaluación guardada correctamente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
+
 
 
 
