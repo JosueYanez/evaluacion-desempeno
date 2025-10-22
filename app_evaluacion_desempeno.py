@@ -229,8 +229,8 @@ elif modo == "RH":
         st.markdown(f"### {factor} {tooltip_html}", unsafe_allow_html=True)
         calidad[factor] = st.slider("Selecciona nivel", 1, 4, 2, key=f"slider_{factor}")
 
-    puntaje_total = sum(calidad.values())
-    st.write(f"**Puntaje total:** {puntaje_total}/24")
+        puntaje_total = sum(calidad.values())
+    st.write(f"**Puntaje total:** {puntaje_total}/48")  # ✅ 12 factores = 48 puntos posibles
 
     # -------------------------------------------------------
     # FECHA BLOQUEADA Y COMENTARIOS
@@ -241,7 +241,7 @@ elif modo == "RH":
     st.text_input("Fecha de Evaluación", f"{dia}/{mes}/{anio}", disabled=True)
     comentarios = st.text_area("Comentarios", key="comentarios_eval")
 
- # -------------------------------------------------------
+# -------------------------------------------------------
 # GUARDAR EVALUACIÓN (CONEXIÓN DIRECTA Y ALINEADA)
 # -------------------------------------------------------
 if st.button("Guardar Evaluación"):
@@ -258,16 +258,16 @@ if st.button("Guardar Evaluación"):
     encabezados = hoja_live.row_values(1)
     num_columnas = len(encabezados)
 
-    # Alinear longitud exacta
+    # Conversión segura a texto
     nueva_fila = [str(x) for x in nueva_fila]
-    if len(nueva_fila) < num_columnas:
-        nueva_fila += [""] * (num_columnas - len(nueva_fila))
-    elif len(nueva_fila) > num_columnas:
-        nueva_fila = nueva_fila[:num_columnas]
 
-    # Agregar fila perfectamente alineada
-    hoja_live.append_row(nueva_fila, value_input_option="USER_ENTERED")
-    st.success(f"✅ Evaluación guardada correctamente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
+    # ✅ Verificación preventiva antes de guardar
+    if len(nueva_fila) != num_columnas:
+        st.warning(f"La fila tiene {len(nueva_fila)} columnas, pero la hoja tiene {num_columnas}. "
+                   "Revisa los encabezados en Google Sheets para asegurar que coincidan.")
+    else:
+        hoja_live.append_row(nueva_fila, value_input_option="USER_ENTERED")
+        st.success(f"✅ Evaluación guardada correctamente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
 
 
 
