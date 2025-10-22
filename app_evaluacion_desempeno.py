@@ -241,19 +241,34 @@ elif modo == "RH":
     st.text_input("Fecha de Evaluación", f"{dia}/{mes}/{anio}", disabled=True)
     comentarios = st.text_area("Comentarios", key="comentarios_eval")
 
-    # -------------------------------------------------------
-    # GUARDAR EVALUACIÓN (CONEXIÓN DIRECTA)
-    # -------------------------------------------------------
-    if st.button("Guardar Evaluación"):
-        hoja_live = client.open_by_key(SHEET_ID).worksheet("trabajadores")
-        nueva_fila = [trab[c] for c in trabajadores.columns] + [
-            dia, mes, anio,
-            meta_real["meta1_real"], meta_real["meta2_real"], meta_real["meta3_real"],
-            resultados["resultado1"], resultados["resultado2"], resultados["resultado3"]
-        ] + list(calidad.values()) + [puntaje_total, comentarios]
+ # -------------------------------------------------------
+# GUARDAR EVALUACIÓN (CONEXIÓN DIRECTA Y ALINEADA)
+# -------------------------------------------------------
+if st.button("Guardar Evaluación"):
+    hoja_live = client.open_by_key(SHEET_ID).worksheet("trabajadores")
 
-        nueva_fila = [str(x) for x in nueva_fila]
-        hoja_live.append_row(nueva_fila)
-        st.success(f"✅ Evaluación guardada correctamente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
+    # Generar fila con todos los datos
+    nueva_fila = [trab[c] for c in trabajadores.columns] + [
+        dia, mes, anio,
+        meta_real["meta1_real"], meta_real["meta2_real"], meta_real["meta3_real"],
+        resultados["resultado1"], resultados["resultado2"], resultados["resultado3"]
+    ] + list(calidad.values()) + [puntaje_total, comentarios]
+
+    # Leer encabezados de la hoja
+    encabezados = hoja_live.row_values(1)
+    num_columnas = len(encabezados)
+
+    # Alinear longitud exacta
+    nueva_fila = [str(x) for x in nueva_fila]
+    if len(nueva_fila) < num_columnas:
+        nueva_fila += [""] * (num_columnas - len(nueva_fila))
+    elif len(nueva_fila) > num_columnas:
+        nueva_fila = nueva_fila[:num_columnas]
+
+    # Agregar fila perfectamente alineada
+    hoja_live.append_row(nueva_fila, value_input_option="USER_ENTERED")
+    st.success(f"✅ Evaluación guardada correctamente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
+
+
 
 
