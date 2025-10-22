@@ -4,32 +4,36 @@ import gspread
 import plotly.express as px
 from google.oauth2.service_account import Credentials
 from datetime import datetime
+import json
 
+# ===========================================================
+# CONFIGURACIÓN GENERAL
+# ===========================================================
 st.set_page_config(layout="wide", page_title="Sistema de Evaluación del Desempeño")
 
-# ===========================================================
-# CONFIGURACIÓN GOOGLE SHEETS
-# ===========================================================
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets",
           "https://www.googleapis.com/auth/drive"]
 
-import json
+# Credenciales desde Streamlit Secrets
 creds_dict = json.loads(st.secrets["general"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
 client = gspread.authorize(creds)
 
-# ID directo de la hoja de cálculo
+# ID del archivo de Google Sheets
 SHEET_ID = "1L1hNefm59HtAnKwNci67B8nsiVdu7n63E9SZZlfoayo"
 
+# ===========================================================
+# CARGA DE DATOS CON CACHÉ
+# ===========================================================
 @st.cache_data(ttl=60)
 def cargar_datos():
-    """Carga la hoja de cálculo con caché para evitar sobrecargar la API."""
+    """Carga los datos de la hoja y los mantiene en caché 60 segundos."""
     spreadsheet = client.open_by_key(SHEET_ID)
     hoja = spreadsheet.worksheet("trabajadores")
     datos = hoja.get_all_records()
-    return pd.DataFrame(datos), hoja
+    return pd.DataFrame(datos)
 
-trabajadores, hoja = cargar_datos()
+trabajadores = cargar_datos()
 
 if trabajadores.empty:
     st.error("⚠️ La hoja 'trabajadores' está vacía o sin encabezados.")
@@ -39,7 +43,6 @@ if trabajadores.empty:
 # INTERFAZ PRINCIPAL
 # ===========================================================
 st.title("💼 Sistema de Evaluación del Desempeño")
-
 modo = st.sidebar.radio("Selecciona el modo:", ("RH", "Administrador"))
 
 # ===========================================================
@@ -49,14 +52,11 @@ if modo == "Administrador":
     password = st.text_input("Contraseña de administrador:", type="password")
     if password == "admin123":
         st.subheader("📊 Panel Administrativo")
-        st.info("Visualiza la base y el historial de evaluaciones.")
+        st.info("Visualiza y analiza el historial de evaluaciones.")
 
         # Filtros por área y trabajador
         area_sel = st.selectbox("Filtrar por área:", ["Todos"] + sorted(trabajadores["Área de Adscripción:"].unique().tolist()))
-        if area_sel != "Todos":
-            df_filtro = trabajadores[trabajadores["Área de Adscripción:"] == area_sel]
-        else:
-            df_filtro = trabajadores
+        df_filtro = trabajadores if area_sel == "Todos" else trabajadores[trabajadores["Área de Adscripción:"] == area_sel]
 
         trabajador_sel = st.selectbox("Filtrar por trabajador:", ["Todos"] + sorted(df_filtro["Nombre(s) y Apellidos:"].unique().tolist()))
         if trabajador_sel != "Todos":
@@ -64,12 +64,11 @@ if modo == "Administrador":
 
         st.dataframe(df_filtro, use_container_width=True)
 
-        # Promedio general
-        if "Puntaje total" in df_filtro.columns:
+        # Promedio general y gráficas institucionales
+        if "Puntaje total" in df_filtro.columns and not df_filtro["Puntaje total"].isnull().all():
             promedio_general = round(df_filtro["Puntaje total"].astype(float).mean(), 2)
-            st.markdown(f"### 📈 Promedio general: **{promedio_general}/48**")
+            st.markdown(f"### 📈 Promedio general: **{promedio_general}/24**")
 
-            # Gráficas institucionales lado a lado
             col1, col2 = st.columns(2)
             with col1:
                 fig1 = px.bar(df_filtro, x="Nombre(s) y Apellidos:", y="Puntaje total",
@@ -86,9 +85,9 @@ if modo == "Administrador":
 # MODO RH
 # ===========================================================
 elif modo == "RH":
-    st.subheader("Modo Recursos Humanos: Evaluación del Desempeño")
+    st.subheader("🧾 Modo Recursos Humanos: Evaluación del Desempeño")
 
-    # Eliminar duplicados de trabajadores (solo uno por nombre)
+    # Trabajadores únicos
     trabajadores_unicos = trabajadores.drop_duplicates(subset=["Nombre(s) y Apellidos:"])
 
     # Filtros
@@ -243,9 +242,10 @@ elif modo == "RH":
     comentarios = st.text_area("Comentarios", key="comentarios_eval")
 
     # -------------------------------------------------------
-    # GUARDAR EVALUACIÓN
+    # GUARDAR EVALUACIÓN (CONEXIÓN DIRECTA)
     # -------------------------------------------------------
     if st.button("Guardar Evaluación"):
+        hoja_live = client.open_by_key(SHEET_ID).worksheet("trabajadores")
         nueva_fila = [trab[c] for c in trabajadores.columns] + [
             dia, mes, anio,
             meta_real["meta1_real"], meta_real["meta2_real"], meta_real["meta3_real"],
@@ -253,6 +253,7 @@ elif modo == "RH":
         ] + list(calidad.values()) + [puntaje_total, comentarios]
 
         nueva_fila = [str(x) for x in nueva_fila]
-        hoja.append_row(nueva_fila)
+        hoja_live.append_row(nueva_fila)
         st.success(f"✅ Evaluación guardada correctamente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
+
 
