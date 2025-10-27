@@ -5,6 +5,8 @@ import plotly.express as px
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 import json
+import time
+from threading import Lock
 
 # ===========================================================
 # CONFIGURACIÓN GENERAL
@@ -68,6 +70,34 @@ if trabajadores.empty:
 # ===========================================================
 st.title("💼 Sistema de Evaluación del Desempeño")
 modo = st.sidebar.radio("Selecciona el modo:", ("RH", "Administrador"))
+
+
+# ===========================================================
+# 🔴 CONTROL DE COLA Y BLOQUEO (PARA BATCH APPEND)
+# ===========================================================
+buffer_evaluaciones = []       # Cola temporal de evaluaciones
+lock = Lock()                  # Control de exclusión mutua
+ULTIMA_ESCRITURA = 0           # Timestamp última escritura
+INTERVALO_SEG = 60             # Intervalo máximo (segundos)
+BATCH_SIZE = 10                # Enviar cada 10 evaluaciones
+
+# 🔴 Función para enviar lote completo a Google Sheets
+def enviar_lote_a_sheets():
+    global buffer_evaluaciones, ULTIMA_ESCRITURA
+    if not buffer_evaluaciones:
+        return
+    try:
+        hoja_live = client.open_by_key(SHEET_ID).worksheet("trabajadores")
+        hoja_live.spreadsheet.values_append(
+            "trabajadores",
+            params={"valueInputOption": "USER_ENTERED"},
+            body={"values": buffer_evaluaciones},
+        )
+        buffer_evaluaciones.clear()
+        ULTIMA_ESCRITURA = time.time()
+        st.toast("📤 Evaluaciones enviadas correctamente al servidor.")
+    except Exception as e:
+        st.error(f"⚠️ Error al enviar lote: {e}")
 
 # ===========================================================
 # MODO ADMINISTRADOR
@@ -274,13 +304,12 @@ elif modo == "RH":
     st.text_input("Fecha de Evaluación", f"{dia}/{mes}/{anio}", disabled=True)
     comentarios = st.text_area("Comentarios", key="comentarios_eval")
 
-# -------------------------------------------------------
-# GUARDAR EVALUACIÓN (corregido y alineado)
-# -------------------------------------------------------
+# ===========================================================
+# GUARDAR EVALUACIÓN (versión con batch y sincronización)
+# ===========================================================
 if st.button("Guardar Evaluación"):
     hoja_live = client.open_by_key(SHEET_ID).worksheet("trabajadores")
 
-    # 🔹 Solo conservar las primeras 19 columnas fijas del trabajador
     columnas_fijas = [
         "Nombre(s) y Apellidos:", "C.U.R.P.", "R.F.C.", "Superior Jerárquico:", "Área de Adscripción:",
         "Puesto que desempeña:", "Nivel:", "Fecha del Nombramiento:", "Antigüedad en el Puesto:",
@@ -288,7 +317,6 @@ if st.button("Guardar Evaluación"):
         "Meta 1 descripción", "Meta 2 descripción", "Meta 3 descripción", "Meta 1 prog", "Meta 2 prog", "Meta 3 prog"
     ]
 
-    # 🔹 Construir nueva fila exactamente en el orden de columnas de la hoja
     nueva_fila = [
         trab[c] for c in columnas_fijas
     ] + [
@@ -303,22 +331,26 @@ if st.button("Guardar Evaluación"):
         puntaje_total, comentarios
     ]
 
-    # 🔹 Convertir todo a string
     nueva_fila = [str(x) for x in nueva_fila]
 
-    # 🔹 Leer encabezados reales de la hoja
     encabezados = hoja_live.row_values(1)
     num_columnas = len(encabezados)
 
-    # 🔹 Alinear longitud exacta (por si falta o sobra algo)
     if len(nueva_fila) < num_columnas:
         nueva_fila += [""] * (num_columnas - len(nueva_fila))
     elif len(nueva_fila) > num_columnas:
         nueva_fila = nueva_fila[:num_columnas]
 
-    # 🔹 Guardar
-    hoja_live.append_row(nueva_fila, value_input_option="USER_ENTERED")
-    st.success(f"✅ Evaluación guardada correctamente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
+    # 🔴 NUEVO: se guarda en cola y se envía en bloque
+    with lock:
+        buffer_evaluaciones.append(nueva_fila)
+        if len(buffer_evaluaciones) >= BATCH_SIZE or (time.time() - ULTIMA_ESCRITURA > INTERVALO_SEG):
+            enviar_lote_a_sheets()
+
+    # 🔴 Confirmación inmediata
+    st.success(f"✅ Evaluación registrada localmente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
+    st.info("La información se enviará automáticamente al servidor en los próximos segundos o al acumular varias evaluaciones.")
+
 
 
 
