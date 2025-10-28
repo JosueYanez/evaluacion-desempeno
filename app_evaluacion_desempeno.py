@@ -109,40 +109,79 @@ if modo == "Administrador":
         st.info("Visualiza y analiza el historial de evaluaciones.")
 
         # Filtros por área y trabajador
-        area_sel = st.selectbox("Filtrar por área:", ["Todos"] + sorted(trabajadores["Área de Adscripción:"].unique().tolist()))
-        df_filtro = trabajadores if area_sel == "Todos" else trabajadores[trabajadores["Área de Adscripción:"] == area_sel]
+        area_sel = st.selectbox(
+            "Filtrar por área:",
+            ["Todos"] + sorted(trabajadores["Área de Adscripción:"].unique().tolist())
+        )
+        df_filtro = (
+            trabajadores
+            if area_sel == "Todos"
+            else trabajadores[trabajadores["Área de Adscripción:"] == area_sel]
+        )
 
-        trabajador_sel = st.selectbox("Filtrar por trabajador:", ["Todos"] + sorted(df_filtro["Nombre(s) y Apellidos:"].unique().tolist()))
+        trabajador_sel = st.selectbox(
+            "Filtrar por trabajador:",
+            ["Todos"] + sorted(df_filtro["Nombre(s) y Apellidos:"].unique().tolist())
+        )
         if trabajador_sel != "Todos":
             df_filtro = df_filtro[df_filtro["Nombre(s) y Apellidos:"] == trabajador_sel]
 
         st.dataframe(df_filtro, use_container_width=True)
 
-        # Promedio general y gráficas institucionales
-        # Promedio general y gráficas institucionales
+        # -------------------------------------------------------
+        # Filtrar solo filas con evaluación real (no base maestra)
+        # -------------------------------------------------------
         if "Puntaje total" in df_filtro.columns:
-            # Convierte los valores a numéricos, ignorando los que no se puedan convertir
-            df_filtro["Puntaje total"] = pd.to_numeric(df_filtro["Puntaje total"], errors="coerce")
+            df_filtro_eval = df_filtro[
+                df_filtro["Puntaje total"].astype(str).str.strip() != ""
+            ]
+            df_filtro_eval = df_filtro_eval[
+                df_filtro_eval["Día"].astype(str).str.strip() != ""
+            ]
 
-            if df_filtro["Puntaje total"].notnull().any():
-                promedio_general = round(df_filtro["Puntaje total"].mean(), 2)
-                st.markdown(f"### 📈 Promedio general: **{promedio_general}/48**")
+            if not df_filtro_eval.empty:
+                # Convierte los valores a numéricos
+                df_filtro_eval["Puntaje total"] = pd.to_numeric(
+                    df_filtro_eval["Puntaje total"], errors="coerce"
+                )
+
+                if df_filtro_eval["Puntaje total"].notnull().any():
+                    promedio_general = round(df_filtro_eval["Puntaje total"].mean(), 2)
+                    total_evals = len(df_filtro_eval)
+                    st.markdown(
+                        f"### 📈 Promedio general: **{promedio_general}/24** &nbsp;&nbsp; _(Evaluaciones registradas: {total_evals})_"
+                    )
+                else:
+                    st.info(
+                        "No hay datos numéricos válidos en 'Puntaje total' para calcular el promedio."
+                    )
+
+                # -------------------------------------------------------
+                # Gráficas institucionales
+                # -------------------------------------------------------
+                col1, col2 = st.columns(2)
+                with col1:
+                    fig1 = px.bar(
+                        df_filtro_eval,
+                        x="Nombre(s) y Apellidos:",
+                        y="Puntaje total",
+                        color="Área de Adscripción:",
+                        title="Puntaje Total por Trabajador"
+                    )
+                    st.plotly_chart(fig1, use_container_width=True)
+                with col2:
+                    fig2 = px.box(
+                        df_filtro_eval,
+                        x="Área de Adscripción:",
+                        y="Puntaje total",
+                        title="Distribución del Puntaje por Área"
+                    )
+                    st.plotly_chart(fig2, use_container_width=True)
             else:
-                st.info("No hay datos numéricos válidos en 'Puntaje total' para calcular promedio.")
-
-            st.markdown(f"### 📈 Promedio general: **{promedio_general}/24**")
-
-            col1, col2 = st.columns(2)
-            with col1:
-                fig1 = px.bar(df_filtro, x="Nombre(s) y Apellidos:", y="Puntaje total",
-                              color="Área de Adscripción:", title="Puntaje Total por Trabajador")
-                st.plotly_chart(fig1, use_container_width=True)
-            with col2:
-                fig2 = px.box(df_filtro, x="Área de Adscripción:", y="Puntaje total",
-                              title="Distribución del Puntaje por Área")
-                st.plotly_chart(fig2, use_container_width=True)
+                st.warning("⚠️ No hay evaluaciones registradas en esta área o trabajador.")
     elif password != "":
         st.error("❌ Contraseña incorrecta.")
+
 
 # ===========================================================
 # MODO RH
@@ -350,6 +389,7 @@ if st.button("Guardar Evaluación"):
     # 🔴 Confirmación inmediata
     st.success(f"✅ Evaluación registrada localmente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
     st.info("La información se enviará automáticamente al servidor en los próximos segundos o al acumular varias evaluaciones.")
+
 
 
 
