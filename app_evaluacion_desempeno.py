@@ -106,13 +106,16 @@ if modo == "Administrador":
     password = st.text_input("Contraseña de administrador:", type="password")
     if password == "admin123":
         st.subheader("📊 Panel Administrativo")
-        st.info("Visualiza y analiza el historial de evaluaciones.")
+        st.info("Visualiza y analiza el historial de evaluaciones registradas por área o trabajador.")
 
+        # -------------------------------------------------------
         # Filtros por área y trabajador
+        # -------------------------------------------------------
         area_sel = st.selectbox(
             "Filtrar por área:",
             ["Todos"] + sorted(trabajadores["Área de Adscripción:"].unique().tolist())
         )
+
         df_filtro = (
             trabajadores
             if area_sel == "Todos"
@@ -129,32 +132,42 @@ if modo == "Administrador":
         st.dataframe(df_filtro, use_container_width=True)
 
         # -------------------------------------------------------
-        # Filtrar solo filas con evaluación real (no base maestra)
+        # Limpieza de columnas y filtrado de evaluaciones reales
         # -------------------------------------------------------
-        if "Puntaje total" in df_filtro.columns:
-            df_filtro_eval = df_filtro[
-                df_filtro["Puntaje total"].astype(str).str.strip() != ""
-            ]
-            df_filtro_eval = df_filtro_eval[
-                df_filtro_eval["Día"].astype(str).str.strip() != ""
-            ]
+        df_filtro.columns = df_filtro.columns.str.strip()  # Elimina espacios y ":" finales
+
+        # Buscar columnas clave con tolerancia de nombres
+        col_puntaje = next((c for c in df_filtro.columns if "Puntaje" in c), None)
+        col_mes = next((c for c in df_filtro.columns if "Mes" in c), None)
+        col_anio = next((c for c in df_filtro.columns if "Año" in c or "Anio" in c), None)
+
+        if col_puntaje and col_mes and col_anio:
+            df_filtro_eval = df_filtro[df_filtro[col_puntaje].astype(str).str.strip() != ""]
+            df_filtro_eval = df_filtro_eval[df_filtro_eval[col_mes].astype(str).str.strip() != ""]
 
             if not df_filtro_eval.empty:
-                # Convierte los valores a numéricos
-                df_filtro_eval["Puntaje total"] = pd.to_numeric(
-                    df_filtro_eval["Puntaje total"], errors="coerce"
+                # Conversión a valores numéricos
+                df_filtro_eval[col_puntaje] = pd.to_numeric(df_filtro_eval[col_puntaje], errors="coerce")
+                df_filtro_eval[col_mes] = pd.to_numeric(df_filtro_eval[col_mes], errors="coerce")
+                df_filtro_eval[col_anio] = pd.to_numeric(df_filtro_eval[col_anio], errors="coerce")
+
+                # Crear columna "Periodo" tipo Mes/Año
+                df_filtro_eval["Periodo"] = df_filtro_eval.apply(
+                    lambda x: f"{int(x[col_mes])}/{int(x[col_anio])}"
+                    if pd.notnull(x[col_mes]) and pd.notnull(x[col_anio])
+                    else "",
+                    axis=1
                 )
 
-                if df_filtro_eval["Puntaje total"].notnull().any():
-                    promedio_general = round(df_filtro_eval["Puntaje total"].mean(), 2)
+                # Calcular promedio general
+                if df_filtro_eval[col_puntaje].notnull().any():
+                    promedio_general = round(df_filtro_eval[col_puntaje].mean(), 2)
                     total_evals = len(df_filtro_eval)
                     st.markdown(
                         f"### 📈 Promedio general: **{promedio_general}/24** &nbsp;&nbsp; _(Evaluaciones registradas: {total_evals})_"
                     )
                 else:
-                    st.info(
-                        "No hay datos numéricos válidos en 'Puntaje total' para calcular el promedio."
-                    )
+                    st.info("⚠️ No hay datos numéricos válidos en 'Puntaje total'.")
 
                 # -------------------------------------------------------
                 # GRÁFICAS
@@ -163,15 +176,15 @@ if modo == "Administrador":
 
                 # 🔹 Gráfica izquierda: evolución temporal (por evaluación)
                 with col1:
-                    if "Periodo" in df_filtro_eval.columns and "Puntaje total" in df_filtro_eval.columns:
+                    if "Periodo" in df_filtro_eval.columns and col_puntaje in df_filtro_eval.columns:
                         fig1 = px.bar(
                             df_filtro_eval,
                             x="Periodo",
-                            y="Puntaje total",
+                            y=col_puntaje,
                             color="Nombre(s) y Apellidos:",
                             barmode="group",
                             title="Evolución del Puntaje por Evaluación (Mes/Año)",
-                            text="Puntaje total"
+                            text=col_puntaje
                         )
                         fig1.update_layout(
                             xaxis_title="Periodo (Mes/Año)",
@@ -189,13 +202,15 @@ if modo == "Administrador":
                     fig2 = px.box(
                         df_filtro_eval,
                         x="Área de Adscripción:",
-                        y="Puntaje total",
+                        y=col_puntaje,
                         title="Distribución del Puntaje por Área"
                     )
                     st.plotly_chart(fig2, use_container_width=True)
 
             else:
                 st.warning("⚠️ No hay evaluaciones registradas en esta área o trabajador.")
+        else:
+            st.error("❌ No se encontraron columnas de 'Mes', 'Año' o 'Puntaje total' en la hoja.")
     elif password != "":
         st.error("❌ Contraseña incorrecta.")
 
@@ -406,6 +421,7 @@ if st.button("Guardar Evaluación"):
     # 🔴 Confirmación inmediata
     st.success(f"✅ Evaluación registrada localmente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
     st.info("La información se enviará automáticamente al servidor en los próximos segundos o al acumular varias evaluaciones.")
+
 
 
 
