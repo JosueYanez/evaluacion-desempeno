@@ -156,7 +156,7 @@ if modo == "Administrador":
                         "No hay datos numéricos válidos en 'Puntaje total' para calcular el promedio."
                     )
 
-                 -------------------------------------------------------
+                # -------------------------------------------------------
                 # GRÁFICAS
                 # -------------------------------------------------------
                 col1, col2 = st.columns(2)
@@ -406,6 +406,7 @@ if st.button("Guardar Evaluación"):
     # 🔴 Confirmación inmediata
     st.success(f"✅ Evaluación registrada localmente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
     st.info("La información se enviará automáticamente al servidor en los próximos segundos o al acumular varias evaluaciones.")
+
 
 
 
