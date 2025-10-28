@@ -156,19 +156,35 @@ if modo == "Administrador":
                         "No hay datos numéricos válidos en 'Puntaje total' para calcular el promedio."
                     )
 
-                # -------------------------------------------------------
-                # Gráficas institucionales
+                 -------------------------------------------------------
+                # GRÁFICAS
                 # -------------------------------------------------------
                 col1, col2 = st.columns(2)
+
+                # 🔹 Gráfica izquierda: evolución temporal (por evaluación)
                 with col1:
-                    fig1 = px.bar(
-                        df_filtro_eval,
-                        x="Nombre(s) y Apellidos:",
-                        y="Puntaje total",
-                        color="Área de Adscripción:",
-                        title="Puntaje Total por Trabajador"
-                    )
-                    st.plotly_chart(fig1, use_container_width=True)
+                    if "Periodo" in df_filtro_eval.columns and "Puntaje total" in df_filtro_eval.columns:
+                        fig1 = px.bar(
+                            df_filtro_eval,
+                            x="Periodo",
+                            y="Puntaje total",
+                            color="Nombre(s) y Apellidos:",
+                            barmode="group",
+                            title="Evolución del Puntaje por Evaluación (Mes/Año)",
+                            text="Puntaje total"
+                        )
+                        fig1.update_layout(
+                            xaxis_title="Periodo (Mes/Año)",
+                            yaxis_title="Puntaje total",
+                            legend_title="Trabajador",
+                            bargap=0.25
+                        )
+                        fig1.update_traces(texttemplate='%{text:.1f}', textposition='outside')
+                        st.plotly_chart(fig1, use_container_width=True)
+                    else:
+                        st.warning("⚠️ No se encontraron columnas 'Mes', 'Año' o 'Puntaje total' para generar la gráfica temporal.")
+
+                # 🔹 Gráfica derecha: distribución por área
                 with col2:
                     fig2 = px.box(
                         df_filtro_eval,
@@ -177,6 +193,7 @@ if modo == "Administrador":
                         title="Distribución del Puntaje por Área"
                     )
                     st.plotly_chart(fig2, use_container_width=True)
+
             else:
                 st.warning("⚠️ No hay evaluaciones registradas en esta área o trabajador.")
     elif password != "":
@@ -389,6 +406,7 @@ if st.button("Guardar Evaluación"):
     # 🔴 Confirmación inmediata
     st.success(f"✅ Evaluación registrada localmente para {trab['Nombre(s) y Apellidos:']} el {dia}/{mes}/{anio}.")
     st.info("La información se enviará automáticamente al servidor en los próximos segundos o al acumular varias evaluaciones.")
+
 
 
 
